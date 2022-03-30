@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <seegul/seegul.h>
+#include <cstring>
+#include <iostream>
+#include <algorithm>
 
 
 Elf32_Ehdr * create_ehdr(){
@@ -36,68 +39,7 @@ Elf32_Ehdr * create_ehdr(){
     return header;
 }
 
-
-/*
-int main()
-{
-    FILE * fout;
-
-    Elf32_Ehdr *elf_header;
-    Elf32_Shdr *NULL_Section; // this should all be null
-    Elf32_Shdr *strtab_Section;
-    Elf32_Shdr *data_section;
-
-    printf("%d\n", strtab_size);
-    fout = fopen("output.elf", "wb");
-
-    if (fout == NULL){
-        printf("Failed to open output.elf\n");
-        return 1;
-    }
-
-    if ((elf_header = create_ehdr()) == NULL){
-        printf("Failed to create new header\n");
-        return 1;
-    }
-
-    if ((NULL_Section = create_shdr()) == NULL){
-        printf("Failed to create new section header\n");
-        return 1;
-    }
-    if ((strtab_Section = create_shdr()) == NULL){
-        printf("Failed to create new section header\n");
-        return 1;
-    }
-    if ((data_section = create_shdr()) == NULL){
-        printf("Failed to create new section header\n");
-        return 1;
-    }
-    elf_header->e_shstrndx = strtab_index;    // Point to the shstrtab section
-    elf_header->e_shnum = section_n;
-    elf_header->e_shoff = sizeof(Elf32_Ehdr);
-
-    strtab_Section->sh_name = 11;
-    strtab_Section->sh_type = SHT_STRTAB;
-    strtab_Section->sh_offset = ((sizeof(Elf32_Shdr))*2)+sizeof(Elf32_Ehdr);
-    strtab_Section->sh_addr = sizeof(Elf32_Shdr)*section_n;
-    strtab_Section->sh_size = strtab_size;
-
-
-    data_section->sh_name = 19;
-    strtab_Section->sh_offset = ((sizeof(Elf32_Shdr))*3)+sizeof(Elf32_Ehdr);
-
-
-    fwrite(elf_header, sizeof(Elf32_Ehdr), 1, fout);
-    fwrite(NULL_Section, sizeof(Elf32_Shdr), 1, fout);
-    fwrite(strtab_Section, sizeof(Elf32_Shdr), 1, fout);
-    fwrite(data_section, sizeof(Elf32_Shdr), 1, fout);
-    fwrite(strtab, strtab_size, 1, fout);
-
-    return 0;
-}*/
-
-
-Elf::Elf(){
+Elf32::Elf32(){
 
     eheader = create_ehdr();
 
@@ -108,8 +50,8 @@ Elf::Elf(){
 
 }
 
-struct Elf_section *Elf::new_section(){
-    struct Elf_section * section = (struct Elf_section*)calloc(sizeof(struct Elf_section),1);
+struct Elf32_section *Elf32::new_section(){
+    struct Elf32_section * section = (struct Elf32_section*)calloc(sizeof(struct Elf32_section),1);
     Elf32_Shdr * section_h = (Elf32_Shdr*)calloc(sizeof(Elf32_Shdr),1);
 
     if (section == NULL || section_h == NULL){
@@ -120,11 +62,12 @@ struct Elf_section *Elf::new_section(){
     section_h->sh_link = 0;
 
     sections.push_back(section);
+    section->index = sections.size()-1;
     return section;
 }
 
 
-void Elf::write(std::string file){
+void Elf32::write(std::string file){
     FILE* fout;
 
     fout = fopen(file.c_str(), "wb");
@@ -173,9 +116,101 @@ void Elf::write(std::string file){
 }
 
 
-void Elf::done(){
+void Elf32::done(){
     for (auto section : sections){
         free(section->section);
         free(section);
     }
+}
+SymTab32::SymTab32(){}
+Elf32_Sym * SymTab32::new_symbol(int name,unsigned char info, int section_index){
+    Elf32_Sym *entry = (Elf32_Sym*)calloc(sizeof(Elf32_Sym),1);
+    if (entry == NULL){
+        return NULL;
+    }
+    entry->st_name = name;
+    entry->st_info = info;
+    entry->st_shndx = section_index;
+    symtab.push_back(entry);
+    return entry;
+}
+
+void SymTab32::add_symtab(Elf32_section*section){
+    Elf32_Sym* _symtab =  (Elf32_Sym*)malloc(sizeof(Elf32_Sym)*symtab.size());
+    int idx = 0;
+    for (auto entry: symtab){
+        memcpy((void*)&_symtab[idx], entry, sizeof(Elf32_Sym));
+        free(entry);
+        idx++;
+    }
+    section->data = _symtab;
+    section->data_sz = sizeof(Elf32_Sym)*symtab.size();
+    section->section->sh_entsize = sizeof(Elf32_Sym);
+    section->section->sh_addralign = 4;
+    section->section->sh_type = SHT_SYMTAB;
+}
+
+Elf32_Rel * RelTab32::new_relocation(int offset, int info){
+    Elf32_Rel * entry = (Elf32_Rel*)malloc(sizeof(Elf32_Rel));
+    reltab.push_back(entry);
+    entry->r_info = info;
+    entry->r_offset = offset;
+    return entry;
+}
+void RelTab32::add_reltab(Elf32_section * section){
+    Elf32_Rel* _reltab =  (Elf32_Rel*)malloc(sizeof(Elf32_Rel)*reltab.size());
+    int idx = 0;
+    for (auto entry : reltab){
+        memcpy((void*)&_reltab[idx], entry, sizeof(Elf32_Rel));
+        free(entry);
+        idx++;
+    }
+    section->data = _reltab;
+    section->data_sz = sizeof(Elf32_Rel)*reltab.size();
+    section->section->sh_entsize = sizeof(Elf32_Rel);
+    section->section->sh_addralign = 4;
+    section->section->sh_type = SHT_REL;
+    section->section->sh_entsize = sizeof(Elf32_Rel);
+}
+void StrTab32::new_string(std::string string){
+    strtab.push_back(string);
+}
+int StrTab32::get_string(std::string str){
+    int strtab_index = 1;
+    bool found = false;
+    for (auto _str: strtab){
+        if (str == _str)
+        {
+            found = true;
+            break;
+        }
+        strtab_index += _str.length()+1;
+    }
+    if (!found){
+        return 0;
+    }
+    return strtab_index;
+}
+void StrTab32::add_strtab(Elf32_section * section){
+    int strtab_size = 0;
+    int index = 0;
+    for (auto str : strtab){
+        strtab_size += str.length()+1;
+    }
+    strtab_size += 1;
+    unsigned char *_strtab = (unsigned char*)malloc(strtab_size);
+    _strtab[index] = 0;
+    index++;
+    for (auto str : strtab){
+        for (int v = 0; v < str.length(); v++){
+            _strtab[index] = str[v];
+            index++;
+        }
+        _strtab[index] = 0;
+        index++;
+    }
+    section->data_sz = strtab_size;
+    section->data = _strtab;
+    section->section->sh_type = SHT_STRTAB;
+    section->section->sh_addralign = 1;
 }

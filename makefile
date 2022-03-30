@@ -1,37 +1,29 @@
 CPP=clang++
 SRC=./src
 
-INCLUDES=-I$(SRC)/include
+INCLUDES=-I./include
 
 CPPFLAGS=-Wall -Wextra $(INCLUDES) -g3
-LDFLAGS=
 
 
-TARGET=seegul
 BUILDDIR=bin
 
 CPPSOURCES=$(shell find $(SRC) -name '*.cc')
 OBJECTS = $(patsubst $(SRC)/%.cc, $(BUILDDIR)/%.o, $(CPPSOURCES))
 
-
-
-.PHONY: all build clean run dirs
-
+.PHONY: all build clean dirs
 
 all: build
 
-build: dirs $(OBJECTS) $(TARGET)
+build: dirs $(OBJECTS)
 
-$(TARGET): $(OBJECTS)
-
-	@$(CPP) $(OBJECTS) $(CPPFLAGS) $(LDFLAGS) -o $(TARGET)
 
 $(BUILDDIR)/%.o: $(SRC)/%.cc
 	@echo "[$(CC)]===>[$<]->[$@]"
 	@$(CC) $(CPPFLAGS) -c -o $@ $<
 
 clean:
-	-@rm -rf $(OBJECTS) $(TARGET) $(BUILDDIR) temp.o
+	-@rm -rf $(OBJECTS) $(TARGET) $(BUILDDIR) temp.o seegul.a
 
 dirs:
 	@mkdir -p $(BUILDDIR)
@@ -40,12 +32,5 @@ dirs:
 	&& cd ../$(BUILDDIR) \
 	&& mkdir -p $$dirs
 
-run: build
-	./$(TARGET)
-
-
-link: run
-	ld -m elf_i386 -s -o temp temp.o
-
-disa: link
-	objdump -d temp
+build-lib: build
+	ar rcs seegul.a $(shell find $(BUILDDIR) -type f -name "*.o")
