@@ -1,6 +1,6 @@
 
 compile:
-	clang++ -o example ./main.cc -I../../src/include/ -L../../ -l:seegul.a
+	clang++ -o example ./main.cc -I../../include/ -L../../ -l:seegul.a
 
 link-output: run
 	ld -m elf_i386 -s -o temp temp.o

@@ -73,22 +73,22 @@ int main(){
 // .symtab
 	symtab_section->section->sh_name = shstrtab->get_string(".symtab");
 	symtab_section->section->sh_link = strtab_section->index;
-	symtab_section->section->sh_info =  ELF32_ST_INFO(STB_LOCAL,5);
 
-	symbol_table->new_symbol(0, 0, SHN_UNDEF);
+	symbol_table->new_symbol(0, 0, 0, SHN_UNDEF);
 
-	symbol_table->new_symbol(strtab->get_string("temp.nash"), ELF32_ST_INFO(STB_LOCAL, STT_FILE), SHN_ABS);
+	symbol_table->new_symbol(strtab->get_string("temp.nash"), STB_LOCAL, STT_FILE, SHN_ABS);
 
 	// .text
-	symbol_table->new_symbol(0, ELF32_ST_INFO(STB_LOCAL, STT_SECTION), text_section->index);
-	// .data
-	symbol_table->new_symbol(0, ELF32_ST_INFO(STB_LOCAL, STT_SECTION), data_section->index);
-	// msg
-	symbol_table->new_symbol(18, ELF32_ST_INFO(STB_LOCAL, STT_NOTYPE), 5);
+	symbol_table->new_symbol(0, STB_LOCAL, STT_SECTION, text_section->index);
 	// _start
-	symbol_table->new_symbol(strtab->get_string("_start"), ELF32_ST_INFO(STB_GLOBAL, STT_NOTYPE), text_section->index);
+	symbol_table->new_symbol(strtab->get_string("_start"), STB_GLOBAL, STT_NOTYPE, text_section->index);
+	// .data
+	symbol_table->new_symbol(0, STB_LOCAL, STT_SECTION, data_section->index);
+	// msg
+	symbol_table->new_symbol(18, STB_LOCAL, STT_NOTYPE, 5);
+	
 	// puts function
-	csym = symbol_table->new_symbol(strtab->get_string("puts"), ELF32_ST_INFO(STB_GLOBAL, STT_NOTYPE), text_section->index);
+	csym = symbol_table->new_symbol(strtab->get_string("puts"), STB_GLOBAL, STT_NOTYPE, text_section->index);
 	csym->st_value = 0x11;
 
 	symbol_table->add_symtab(symtab_section);

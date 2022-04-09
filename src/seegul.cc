@@ -123,28 +123,63 @@ void Elf32::done(){
     }
 }
 SymTab32::SymTab32(){}
-Elf32_Sym * SymTab32::new_symbol(int name,unsigned char info, int section_index){
+Elf32_Sym * SymTab32::new_symbol(int name,int vis, int type, int section_index){
     Elf32_Sym *entry = (Elf32_Sym*)calloc(sizeof(Elf32_Sym),1);
     if (entry == NULL){
         return NULL;
     }
     entry->st_name = name;
-    entry->st_info = info;
+    entry->st_info = ELF32_ST_INFO(vis, type);
     entry->st_shndx = section_index;
-    symtab.push_back(entry);
+
+    switch (vis){
+        case STB_LOCAL:
+            {
+                local_symtab.push_back(entry);
+                break;
+            }
+        case STB_GLOBAL:
+            {
+                global_symtab.push_back(entry);
+                break;
+            }
+        default:
+            {
+                other_symtab.push_back(entry);
+                break;
+            }
+    }
     return entry;
 }
 
 void SymTab32::add_symtab(Elf32_section*section){
-    Elf32_Sym* _symtab =  (Elf32_Sym*)malloc(sizeof(Elf32_Sym)*symtab.size());
+
+    int size = (local_symtab.size() + global_symtab.size() + other_symtab.size()) * sizeof(Elf32_Sym);
+
+    Elf32_Sym* _symtab =  (Elf32_Sym*)malloc(size);
     int idx = 0;
-    for (auto entry: symtab){
+    for (auto entry: local_symtab){ // local symbols must be first in the table
         memcpy((void*)&_symtab[idx], entry, sizeof(Elf32_Sym));
         free(entry);
         idx++;
     }
+
+
+    section->section->sh_info = ELF32_ST_INFO(STB_LOCAL,idx); // we set the index of the first global symbol
+    for (auto entry: global_symtab){ // then we set all the globals
+        memcpy((void*)&_symtab[idx], entry, sizeof(Elf32_Sym));
+        free(entry);
+        idx++;
+    }
+
+    for (auto entry: other_symtab){ // we now setup the rest of the symbols
+        memcpy((void*)&_symtab[idx], entry, sizeof(Elf32_Sym));
+        free(entry);
+        idx++;
+    }
+
     section->data = _symtab;
-    section->data_sz = sizeof(Elf32_Sym)*symtab.size();
+    section->data_sz = size;
     section->section->sh_entsize = sizeof(Elf32_Sym);
     section->section->sh_addralign = 4;
     section->section->sh_type = SHT_SYMTAB;
@@ -202,7 +237,7 @@ void StrTab32::add_strtab(Elf32_section * section){
     _strtab[index] = 0;
     index++;
     for (auto str : strtab){
-        for (int v = 0; v < str.length(); v++){
+        for (unsigned int v = 0; v < str.length(); v++){
             _strtab[index] = str[v];
             index++;
         }

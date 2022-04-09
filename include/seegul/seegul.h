@@ -28,11 +28,17 @@ public:
 class SymTab32{
 public:
 	SymTab32();
-	Elf32_Sym * new_symbol(int name,unsigned char info, int section_index);
+	Elf32_Sym * new_symbol(int name,int vis, int type, int section_index);
 	void add_symtab(Elf32_section*);
 private:
-	std::vector<Elf32_Sym*> symtab;
+	// could use two lists for this, but iterating through lists is supposed to be slow. 
+	// Must change if its faster for two lists.
+	std::vector<Elf32_Sym*> local_symtab;
+	std::vector <Elf32_Sym *> global_symtab;
+	std::vector <Elf32_Sym*> other_symtab;
 };
+
+
 
 class RelTab32{
 public:
